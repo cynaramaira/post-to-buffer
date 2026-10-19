@@ -1,0 +1,40 @@
+name: Monitorar Site e Postar nas Redes via Buffer
+
+on:
+  schedule:
+    # Executa a cada 15 minutos (intervalo seguro dentro da cota gratuita)
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check-sitemap:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependências
+        run: |
+          pip install -r requirements.txt
+
+      - name: Executar script
+        env:
+          BUFFER_ACCESS_TOKEN: ${{ secrets.BUFFER_ACCESS_TOKEN }}
+          BUFFER_PROFILE_IDS: ${{ secrets.BUFFER_PROFILE_IDS }}
+        run: |
+          python post_site_to_buffer.py
+
+      - name: Salvar estado da última matéria no repositório
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add last_posted_article.txt
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: atualiza url da ultima materia [skip ci]" && git push)
