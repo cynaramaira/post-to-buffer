@@ -26,18 +26,33 @@ def save_last_posted_url(article_url):
     with open(STATE_FILE, "w", encoding="utf-8") as file:
         file.write(article_url)
 
-def get_article_title(url):
+def get_article_text(url):
+    """
+    Extrai preferencialmente a linha fina (og:description).
+    Se não encontrar, usa o título principal como fallback.
+    """
     try:
         res = requests.get(url, headers=HEADERS, timeout=10)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, "html.parser")
+            
+            # 1. Tenta pegar a Linha Fina (subtítulo)
+            og_desc = soup.find("meta", property="og:description")
+            if og_desc and og_desc.get("content") and og_desc["content"].strip():
+                return og_desc["content"].strip()
+            
+            meta_desc = soup.find("meta", attrs={"name": "description"})
+            if meta_desc and meta_desc.get("content") and meta_desc["content"].strip():
+                return meta_desc["content"].strip()
+
+            # 2. Se não tiver linha fina, pega o título principal
             og_title = soup.find("meta", property="og:title")
             if og_title and og_title.get("content"):
                 return og_title["content"].strip()
             if soup.title and soup.title.string:
                 return soup.title.string.strip()
     except Exception as e:
-        print(f"Erro ao capturar título da página: {e}")
+        print(f"Erro ao capturar dados da página: {e}")
     return ""
 
 def send_to_buffer(text):
@@ -131,13 +146,14 @@ def main():
 
         if latest_url != last_posted:
             print(f"Nova matéria detectada: {latest_url}")
-            title = get_article_title(latest_url)
+            lead_text = get_article_text(latest_url)
 
-            # Limite para não estourar os 280 caracteres do X considerando a URL
-            if len(title) > 200:
-                title = title[:197] + "..."
+            # Limite seguro para o post caber no X (280 chars) junto com o link
+            if len(lead_text) > 200:
+                lead_text = lead_text[:197] + "..."
 
-            post_text = f"{title}\n\nConfira: {latest_url}" if title else latest_url
+            # Formato idêntico ao modelo: Linha Fina em cima + Link embaixo
+            post_text = f"{lead_text}\n{latest_url}" if lead_text else latest_url
 
             send_to_buffer(post_text)
             save_last_posted_url(latest_url)
