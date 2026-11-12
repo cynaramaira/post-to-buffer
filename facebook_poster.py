@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 PAGE_ID = os.getenv("FACEBOOK_PAGE_ID")
 ACCESS_TOKEN = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN")
 SITEMAP_URL = "https://jamildo.com/sitemap-artigos.xml"
-ARQUIVO_HISTORICO = "postados.txt"
+ARQUIVO_HISTORICO = "postados_facebook.txt"
 LIMITE_HISTORICO = 30
 
 HEADERS = {
