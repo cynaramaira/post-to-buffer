@@ -2,7 +2,6 @@ name: Monitorar Site e Postar nas Redes via Buffer
 
 on:
   schedule:
-    # Executa a cada 15 minutos (intervalo seguro dentro da cota gratuita)
     - cron: '*/5 * * * *'
   workflow_dispatch:
 
@@ -24,24 +23,25 @@ jobs:
       - name: Instalar dependências
         run: |
           pip install -r requirements.txt
+          pip install beautifulsoup4
 
-      - name: Executar script
+      - name: Executar script Buffer
         env:
           BUFFER_ACCESS_TOKEN: ${{ secrets.BUFFER_ACCESS_TOKEN }}
           BUFFER_PROFILE_IDS: ${{ secrets.BUFFER_PROFILE_IDS }}
         run: |
           python post_site_to_buffer.py
 
-      - name: Salvar estado da última matéria no repositório
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add last_posted_article.txt
-          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: atualiza url da ultima materia [skip ci]" && git push)
       - name: Publicar no Facebook
         env:
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
         run: |
-          pip install beautifulsoup4
           python facebook_poster.py
+
+      - name: Salvar estado das matérias no repositório
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add last_posted_article.txt postados_facebook.txt
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: atualiza urls postadas [skip ci]" && git push)
