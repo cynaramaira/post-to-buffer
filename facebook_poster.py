@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
@@ -20,7 +21,6 @@ def carregar_historico():
         return [linha.strip() for linha in f if linha.strip()]
 
 def salvar_historico(lista_links):
-    # Mantém apenas os últimos 30 links registrados
     links_recentes = lista_links[-LIMITE_HISTORICO:]
     with open(ARQUIVO_HISTORICO, "w", encoding="utf-8") as f:
         for link in links_recentes:
@@ -31,7 +31,6 @@ def buscar_links_sitemap():
     response.raise_for_status()
     root = ET.fromstring(response.content)
     
-    # Extrai todas as tags <loc> ignorando o namespace XML
     urls = [elem.text.strip() for elem in root.iter() if elem.tag.endswith("loc") and elem.text]
     return urls
 
@@ -40,7 +39,6 @@ def extrair_titulo(url):
         resp = requests.get(url, headers=HEADERS, timeout=15)
         soup = BeautifulSoup(resp.content, "html.parser")
         
-        # Prioriza a meta tag og:title (título limpo da matéria)
         og_title = soup.find("meta", property="og:title")
         if og_title and og_title.get("content"):
             return og_title["content"].strip()
@@ -59,14 +57,14 @@ def postar_no_facebook():
         print("Nenhuma URL encontrada no sitemap.")
         return
 
-    # Pega as 5 primeiras URLs do sitemap (mais recentes) e inverte para postar em ordem cronológica
     ultimas_urls = list(reversed(urls_sitemap[:5]))
+    urls_pendentes = [link for link in ultimas_urls if link not in historico]
 
-    for link in ultimas_urls:
-        if link in historico:
-            print(f"Já postado: {link}")
-            continue
+    if not urls_pendentes:
+        print("Nenhuma matéria nova para o Facebook.")
+        return
 
+    for indice, link in enumerate(urls_pendentes):
         titulo = extrair_titulo(link)
         mensagem = f"{titulo}\n\nLeia mais: {link}" if titulo else link
 
@@ -83,8 +81,14 @@ def postar_no_facebook():
             print(f"Publicado com sucesso: {titulo or link}")
             historico.append(link)
             salvar_historico(historico)
+            
+            # Aguarda 15 segundos apenas se houver outra matéria na fila
+            if indice < len(urls_pendentes) - 1:
+                time.sleep(15)
         else:
             print(f"Erro ao publicar '{link}': {response.json()}")
+            print("Interrompendo envios nesta rodada para evitar bloqueio por rajada.")
+            break
 
 if __name__ == "__main__":
     postar_no_facebook()
